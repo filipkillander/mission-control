@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useSmartPoll } from '@/lib/use-smart-poll'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
+import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent'
 
 interface CpuData {
   usagePercent: number
@@ -193,7 +194,7 @@ export function SystemMonitorPanel() {
                 <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={30} tickFormatter={v => `${v}%`} />
                 <Tooltip
                   contentStyle={{ fontSize: 12, background: 'var(--color-card)', border: '1px solid var(--color-border)' }}
-                  formatter={(v: number | undefined) => [`${v ?? 0}%`, 'CPU']}
+                  formatter={(v: ValueType | undefined) => [`${Number(v ?? 0)}%`, 'CPU']}
                 />
                 <Area
                   type="monotone"
@@ -229,7 +230,7 @@ export function SystemMonitorPanel() {
                 <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={30} tickFormatter={v => `${v}%`} />
                 <Tooltip
                   contentStyle={{ fontSize: 12, background: 'var(--color-card)', border: '1px solid var(--color-border)' }}
-                  formatter={(v: number | undefined) => [`${v ?? 0}%`, 'Memory']}
+                  formatter={(v: ValueType | undefined) => [`${Number(v ?? 0)}%`, 'Memory']}
                 />
                 <Area
                   type="monotone"
@@ -303,7 +304,7 @@ export function SystemMonitorPanel() {
                       <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={30} tickFormatter={v => `${v}%`} />
                       <Tooltip
                         contentStyle={{ fontSize: 12, background: 'var(--color-card)', border: '1px solid var(--color-border)' }}
-                        formatter={(v: number | undefined) => [`${v ?? 0}%`, 'GPU Memory']}
+                        formatter={(v: ValueType | undefined) => [`${Number(v ?? 0)}%`, 'GPU Memory']}
                       />
                       <Area
                         type="monotone"
@@ -393,8 +394,8 @@ export function SystemMonitorPanel() {
                     <YAxis tick={{ fontSize: 10 }} width={50} tickFormatter={v => formatRate(v)} />
                     <Tooltip
                       contentStyle={{ fontSize: 12, background: 'var(--color-card)', border: '1px solid var(--color-border)' }}
-                      formatter={(v: number | undefined, name?: string) => [
-                        formatRate(v ?? 0),
+                      formatter={(v: ValueType | undefined, name?: NameType) => [
+                        formatRate(Number(v ?? 0)),
                         name === 'netRxRate' ? 'Download' : 'Upload',
                       ]}
                     />
