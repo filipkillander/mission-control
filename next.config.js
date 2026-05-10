@@ -17,6 +17,12 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Allow opening the dev dashboard from Filip's MacBook Pro via LAN/Tailscale.
+  allowedDevOrigins: [
+    '192.168.86.212',
+    '192.168.86.240',
+    '100.121.120.33',
+  ],
   // Transpile ESM-only packages so they resolve correctly in all environments
   transpilePackages: ['react-markdown', 'remark-gfm'],
   
