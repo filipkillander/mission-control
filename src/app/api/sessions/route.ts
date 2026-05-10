@@ -378,9 +378,16 @@ function dedupeAndSortSessions(merged: Array<Record<string, any>>) {
     if (!existing || currentActivity > existingActivity) deduped.set(key, session)
   }
 
-  return Array.from(deduped.values())
+  const sorted = Array.from(deduped.values())
     .sort((a, b) => Number(b?.lastActivity || 0) - Number(a?.lastActivity || 0))
-    .slice(0, 100)
+
+  const limited = sorted.slice(0, 100)
+  const limitedKeys = new Set(limited.map((session) => `${String(session?.source || '')}:${String(session?.id || '')}`))
+  const localOverflow = sorted
+    .filter((session) => session?.source === 'local')
+    .filter((session) => !limitedKeys.has(`${String(session?.source || '')}:${String(session?.id || '')}`))
+
+  return [...limited, ...localOverflow]
 }
 
 function formatTokens(n: number): string {

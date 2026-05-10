@@ -4,7 +4,7 @@ import { logAuditEvent } from '@/lib/db'
 import { config } from '@/lib/config'
 import { join } from 'path'
 import { readFile, writeFile, rename } from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import os from 'os'
 import { execFileSync } from 'child_process'
 import { validateBody, integrationActionSchema } from '@/lib/validation'
@@ -51,6 +51,7 @@ const INTEGRATIONS: IntegrationDef[] = [
   { id: 'ollama', name: 'Ollama (Local)', category: 'ai', envVars: ['OLLAMA_API_KEY'], vaultItem: 'openclaw-ollama-api-key' },
 
   // Search
+  { id: 'tavily', name: 'Tavily Search', category: 'search', envVars: ['TAVILY_API_KEY'], vaultItem: 'openclaw-tavily-api-key', testable: true },
   { id: 'brave', name: 'Brave Search', category: 'search', envVars: ['BRAVE_API_KEY'], vaultItem: 'openclaw-brave-api-key' },
 
   // Social
@@ -63,7 +64,8 @@ const INTEGRATIONS: IntegrationDef[] = [
   },
   { id: 'linkedin', name: 'LinkedIn', category: 'social', envVars: ['LINKEDIN_ACCESS_TOKEN'] },
 
-  // Messaging — add entries here for each Telegram bot you run
+  // Messaging — add entries here for each bot/channel provider you run
+  { id: 'discord', name: 'Discord', category: 'messaging', envVars: ['DISCORD_BOT_TOKEN'], vaultItem: 'openclaw-discord-bot-token', testable: true },
   { id: 'telegram', name: 'Telegram', category: 'messaging', envVars: ['TELEGRAM_BOT_TOKEN'], vaultItem: 'openclaw-telegram-bot-token', testable: true },
 
   // Dev Tools
@@ -83,7 +85,7 @@ const INTEGRATIONS: IntegrationDef[] = [
   { id: 'onepassword', name: '1Password', category: 'security', envVars: ['OP_SERVICE_ACCOUNT_TOKEN'] },
 
   // Infrastructure
-  { id: 'gateway', name: 'Gateway Auth', category: 'infra', envVars: ['OPENCLAW_GATEWAY_TOKEN'], vaultItem: 'openclaw-openclaw-gateway-token' },
+  { id: 'gateway', name: 'Gateway Auth', category: 'infra', envVars: ['GATEWAY_AUTH_TOKEN'], vaultItem: 'openclaw-gateway-auth-token' },
 
   // Browser Automation
   { id: 'hyperbrowser', name: 'Hyperbrowser', category: 'browser', envVars: ['HYPERBROWSER_API_KEY'], testable: true, recommendation: 'Cloud browser automation for AI agents. Get a key at hyperbrowser.ai' },
@@ -183,11 +185,35 @@ function isVarBlocked(key: string): boolean {
   return BLOCKED_PREFIXES.some(p => key.startsWith(p))
 }
 
+let hermesEnvCache: { ts: number; values: Map<string, string> } | null = null
+
+function readHermesEnvValues(): Map<string, string> {
+  const now = Date.now()
+  if (hermesEnvCache && now - hermesEnvCache.ts < 5000) return hermesEnvCache.values
+
+  const values = new Map<string, string>()
+  const envPath = join(os.homedir(), '.hermes', '.env')
+  try {
+    if (existsSync(envPath)) {
+      for (const line of parseEnv(readFileSync(envPath, 'utf-8'))) {
+        if (line.type === 'var' && line.key && line.value) values.set(line.key, line.value)
+      }
+    }
+  } catch {
+    // Hermes env is an optional fallback, never a hard dependency for MC.
+  }
+
+  hermesEnvCache = { ts: now, values }
+  return values
+}
+
 function getEffectiveEnvValue(envMap: Map<string, string>, key: string): string {
   const fromFile = envMap.get(key)
   if (typeof fromFile === 'string' && fromFile.length > 0) return fromFile
   const fromProcess = process.env[key]
   if (typeof fromProcess === 'string' && fromProcess.length > 0) return fromProcess
+  const fromHermes = readHermesEnvValues().get(key)
+  if (typeof fromHermes === 'string' && fromHermes.length > 0) return fromHermes
   return ''
 }
 
@@ -661,6 +687,22 @@ async function handleTest(
     const providerSubscriptions = detectProviderSubscriptions()
 
     switch (integration.id) {
+      case 'discord': {
+        const token = getEffectiveEnvValue(envMap, 'DISCORD_BOT_TOKEN')
+        if (!token) return NextResponse.json({ ok: false, detail: 'Token not set' })
+        const res = await fetch('https://discord.com/api/v10/users/@me', {
+          headers: { Authorization: `Bot ${token}` },
+          signal: AbortSignal.timeout(5000),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          result = { ok: true, detail: `Bot: ${data.username || data.id}` }
+        } else {
+          result = { ok: false, detail: `HTTP ${res.status}` }
+        }
+        break
+      }
+
       case 'telegram': {
         const token = getEffectiveEnvValue(envMap, integration.envVars[0])
         if (!token) return NextResponse.json({ ok: false, detail: 'Token not set' })
@@ -729,6 +771,21 @@ async function handleTest(
         const res = await fetch('https://openrouter.ai/api/v1/models', {
           headers: { Authorization: `Bearer ${key}` },
           signal: AbortSignal.timeout(5000),
+        })
+        result = res.ok
+          ? { ok: true, detail: 'API key valid' }
+          : { ok: false, detail: `HTTP ${res.status}` }
+        break
+      }
+
+      case 'tavily': {
+        const key = getEffectiveEnvValue(envMap, 'TAVILY_API_KEY')
+        if (!key) return NextResponse.json({ ok: false, detail: 'API key not set' })
+        const res = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: key, query: 'Mission Control health check', max_results: 1 }),
+          signal: AbortSignal.timeout(8000),
         })
         result = res.ok
           ? { ok: true, detail: 'API key valid' }
