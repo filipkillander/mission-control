@@ -4,7 +4,7 @@ import { logAuditEvent } from '@/lib/db'
 import { config } from '@/lib/config'
 import { join } from 'path'
 import { readFile, writeFile, rename } from 'fs/promises'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync } from 'fs'
 import os from 'os'
 import { execFileSync } from 'child_process'
 import { validateBody, integrationActionSchema } from '@/lib/validation'
@@ -185,35 +185,11 @@ function isVarBlocked(key: string): boolean {
   return BLOCKED_PREFIXES.some(p => key.startsWith(p))
 }
 
-let hermesEnvCache: { ts: number; values: Map<string, string> } | null = null
-
-function readHermesEnvValues(): Map<string, string> {
-  const now = Date.now()
-  if (hermesEnvCache && now - hermesEnvCache.ts < 5000) return hermesEnvCache.values
-
-  const values = new Map<string, string>()
-  const envPath = join(os.homedir(), '.hermes', '.env')
-  try {
-    if (existsSync(envPath)) {
-      for (const line of parseEnv(readFileSync(envPath, 'utf-8'))) {
-        if (line.type === 'var' && line.key && line.value) values.set(line.key, line.value)
-      }
-    }
-  } catch {
-    // Hermes env is an optional fallback, never a hard dependency for MC.
-  }
-
-  hermesEnvCache = { ts: now, values }
-  return values
-}
-
 function getEffectiveEnvValue(envMap: Map<string, string>, key: string): string {
   const fromFile = envMap.get(key)
   if (typeof fromFile === 'string' && fromFile.length > 0) return fromFile
   const fromProcess = process.env[key]
   if (typeof fromProcess === 'string' && fromProcess.length > 0) return fromProcess
-  const fromHermes = readHermesEnvValues().get(key)
-  if (typeof fromHermes === 'string' && fromHermes.length > 0) return fromHermes
   return ''
 }
 
