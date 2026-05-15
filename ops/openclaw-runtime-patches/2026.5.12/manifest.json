@@ -1,0 +1,64 @@
+{
+  "name": "openclaw-runtime-status-session-repair",
+  "openclawVersion": "2026.5.12",
+  "createdAt": "2026-05-16T00:49:00+02:00",
+  "scope": "Reapply the verified OpenClaw runtime status/session performance patches after an OpenClaw reinstall or update rewrites dist files.",
+  "runtimeRoot": "/Users/Lumi/.openclaw/lib/node_modules/openclaw",
+  "files": [
+    {
+      "target": "dist/sessions-B5dzJVcm.js",
+      "asset": "files/openclaw-dist/sessions-B5dzJVcm.js",
+      "patchedSha256": "8d5a31b793b09fbc4ccb8f67ac65d5437ae6a95daa466e5d1c9607231cd91abd",
+      "sourceSha256": [
+        "889d8188148110b30304e205f8c9eebe7db6461480d3c90896d74689a11617a2",
+        "7bde2c0bc24b8427b3565256963c6c745ae201689ed2c5840a61a0110063f463"
+      ],
+      "reason": "Avoid expensive session context-window lookups when saved contextTokens or safe display fallbacks are available."
+    },
+    {
+      "target": "dist/commands/status.summary.runtime.js",
+      "asset": "files/openclaw-dist/commands/status.summary.runtime.js",
+      "patchedSha256": "b4b799ab0b2a1624abd5bfa0a4beb843f114ac8c1f1e00f1d650e8f1273ac9c0",
+      "sourceSha256": [
+        "1ff804b5c351e401e13c64f434eb4bb6935a21ec5bfe8d7dda0bdbfff8a2a32c"
+      ],
+      "reason": "Resolve auto/default runtime labels without broad provider scans."
+    },
+    {
+      "target": "dist/status-text-DPhaA3Qf.js",
+      "asset": "files/openclaw-dist/status-text-DPhaA3Qf.js",
+      "patchedSha256": "d1cd2469872afd36d6b552ae8bfe81c8b34951f1d73a4e53c9aae126f902095b",
+      "sourceSha256": [
+        "ef5972945e4eab624577453441d6019fa75485433ae5b32a2ff1f1feb04b52db"
+      ],
+      "reason": "Avoid slow status rendering paths for auto/default runtime labels."
+    },
+    {
+      "target": "dist/agent-runtime-label-BMN3Hrxm.js",
+      "asset": "files/openclaw-dist/agent-runtime-label-BMN3Hrxm.js",
+      "patchedSha256": "1f5655b77db5f50fa1c172777ca0199d1d4db8839a0b823fcd86de11f8600ba4",
+      "sourceSha256": [
+        "74344aa0701c94f396dbed9a63b6e50299b372b2110deebbe454eb582d598734"
+      ],
+      "reason": "Treat auto/default runtime as OpenClaw Pi Default without expensive provider discovery."
+    },
+    {
+      "target": "dist/model-selection-cli-CT4Mltpu.js",
+      "asset": "files/openclaw-dist/model-selection-cli-CT4Mltpu.js",
+      "patchedSha256": "c41d35bda0d2a35b70606f7692f392176d1c39b82a6387e79f06b5b26280a8ee",
+      "sourceSha256": [
+        "8de5a2380ecb1fced9eed0703c0267a4f8ecb897b7c46f40e9d86059cd48a9bc"
+      ],
+      "reason": "Cache bundled setup CLI backend metadata per process and config fingerprint."
+    },
+    {
+      "target": "dist/plugin-metadata-snapshot-DlaHO4z7.js",
+      "asset": "files/openclaw-dist/plugin-metadata-snapshot-DlaHO4z7.js",
+      "patchedSha256": "b4fc5d718050c2816b5aee256d880f88d25f0ee4749f831060c0c4ae3d305dbb",
+      "sourceSha256": [
+        "108cd57ad5344495b3385d808f4198482a618d0d269d3a45ae2fe1e610f99fc5"
+      ],
+      "reason": "Cache plugin metadata snapshots by fingerprinted control-plane context."
+    }
+  ]
+}
