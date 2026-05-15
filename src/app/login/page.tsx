@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LanguageSwitcherSelect } from '@/components/ui/language-switcher'
+import { NetworkBackground } from '@/components/ui/network-background'
 import { STORAGE_GATEWAY_URL } from '@/lib/device-identity'
 
 interface GoogleCredentialResponse {
@@ -87,10 +88,8 @@ export default function LoginPage() {
   const [googleReady, setGoogleReady] = useState(false)
   const googleCallbackRef = useRef<((response: GoogleCredentialResponse) => void) | null>(null)
 
-  // Advanced settings state
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [gatewayPreset, setGatewayPreset] = useState<string>(() => {
-    // Auto-select wss:// preset when the page is served over HTTPS (reverse proxy)
     if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
       return 'wss://127.0.0.1:18789'
     }
@@ -100,7 +99,6 @@ export default function LoginPage() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle')
   const [connectionError, setConnectionError] = useState('')
 
-  // Initialize gateway URL from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_GATEWAY_URL)
     if (saved) {
@@ -174,7 +172,6 @@ export default function LoginPage() {
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
-  // Check if first-time setup is needed on page load — auto-redirect to /setup
   useEffect(() => {
     fetch('/api/setup')
       .then((res) => res.json())
@@ -183,9 +180,7 @@ export default function LoginPage() {
           window.location.href = '/setup'
         }
       })
-      .catch(() => {
-        // Ignore — setup check is best-effort
-      })
+      .catch(() => {})
   }, [])
 
   const completeLogin = useCallback(async (path: string, body: LoginRequestBody) => {
@@ -220,8 +215,6 @@ export default function LoginPage() {
       return false
     }
 
-    // Full reload ensures the session cookie is sent on all subsequent requests.
-    // router.push() + refresh() can race and use stale RSC payloads.
     window.location.href = '/'
     return true
   }, [t])
@@ -231,7 +224,6 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    // Read DOM values directly to handle browser autofill (which doesn't fire onChange)
     const form = e.target as HTMLFormElement
     const formUsername = (form.elements.namedItem('username') as HTMLInputElement)?.value || username
     const formPassword = (form.elements.namedItem('password') as HTMLInputElement)?.value || password
@@ -244,7 +236,6 @@ export default function LoginPage() {
     }
   }
 
-  // Initialize Google Sign-In SDK (hidden prompt mode)
   useEffect(() => {
     if (!googleClientId) return
 
@@ -290,256 +281,296 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen relative flex items-center justify-center overflow-hidden">
+      <NetworkBackground />
+
+      {/* Language selector - corner, subtle */}
+      <div className="absolute top-4 right-4 z-20 opacity-60 hover:opacity-100 transition-opacity duration-300">
         <LanguageSwitcherSelect />
       </div>
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-lg overflow-hidden bg-background border border-border/50 flex items-center justify-center mb-3">
-            <Image
-              src="/brand/mc-logo-128.png"
-              alt="Mission Control logo"
-              width={48}
-              height={48}
-              className="h-full w-full object-cover"
-              priority
-            />
-          </div>
-          <h1 className="text-xl font-semibold text-foreground">{t('missionControl')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t('signInToContinue')}</p>
-        </div>
 
-        {pendingApproval && (
-          <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
-            <div className="flex justify-center mb-2">
-              <svg className="w-8 h-8 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12,6 12,12 16,14" />
-              </svg>
-            </div>
-            <div className="text-sm font-medium text-amber-200">{t('accessRequestSubmitted')}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('accessRequestDescription')}
-            </p>
-            <Button
-              onClick={() => { setPendingApproval(false); setError(''); setGoogleLoading(false) }}
-              variant="ghost"
-              size="sm"
-              className="mt-3 text-xs"
-            >
-              {t('tryAgain')}
-            </Button>
-          </div>
-        )}
+      {/* Main glass card */}
+      <div className="relative z-10 w-full max-w-[420px] mx-4 sm:mx-6">
+        {/* Glow ring */}
+        <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-void-cyan/20 via-transparent to-void-violet/15 blur-sm pointer-events-none" />
 
-        {needsSetup && (
-          <div className="mb-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-            <div className="flex justify-center mb-2">
-              <svg className="w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <div className="text-sm font-medium text-blue-200">{t('noAdminAccount')}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('noAdminDescription')}
-            </p>
-            <Button
-              onClick={() => { window.location.href = '/setup' }}
-              size="sm"
-              className="mt-3"
-            >
-              {t('createAdminAccount')}
-            </Button>
-          </div>
-        )}
+        <div className="relative bg-card/75 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl overflow-hidden"
+          style={{
+            boxShadow: `
+              0 4px 24px hsl(215 27% 4% / 0.6),
+              0 0 0 1px hsl(var(--void-cyan) / 0.04),
+              inset 0 1px 0 hsl(var(--void-cyan) / 0.03)
+            `,
+          }}
+        >
+          {/* Top decorative line */}
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-void-cyan/20 to-transparent" />
 
-        {error && (
-          <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Advanced Settings — WebSocket gateway URL configuration */}
-        <div className="mb-4 rounded-lg border border-border overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen(o => !o)}
-            className="w-full px-3 py-2 flex items-center justify-between text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-          >
-            <span>{t('advancedSettings')}</span>
-            <svg
-              className={`w-4 h-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M4 6l4 4 4-4" />
-            </svg>
-          </button>
-
-          {advancedOpen && (
-            <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border">
-              <div>
-                <label htmlFor="gateway-url" className="block text-sm font-medium text-foreground mb-1.5">
-                  {t('gatewayUrl')}
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    id="gateway-url"
-                    value={gatewayPreset}
-                    onChange={e => handleGatewayUrlChange(e.target.value)}
-                    className="flex-1 h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth appearance-none cursor-pointer"
-                  >
-                    {GATEWAY_URL_PRESETS.map(url => (
-                      <option key={url} value={url}>{url}</option>
-                    ))}
-                    <option value="custom">Custom</option>
-                  </select>
-                </div>
-                {gatewayPreset === 'custom' && (
-                  <input
-                    type="text"
-                    value={gatewayCustom}
-                    onChange={e => handleGatewayCustomChange(e.target.value)}
-                    placeholder={t('gatewayUrlPlaceholder')}
-                    className="mt-2 w-full h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth"
+          <div className="px-6 sm:px-8 pt-8 pb-6">
+            {/* Logo + title */}
+            <div className="flex flex-col items-center mb-8">
+              <div className="relative mb-4">
+                <div className="absolute inset-0 rounded-xl bg-void-cyan/10 blur-xl animate-pulse" />
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-card border border-border/60 flex items-center justify-center shadow-lg">
+                  <Image
+                    src="/brand/mc-logo-128.png"
+                    alt="Mission Control logo"
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                    priority
                   />
-                )}
+                </div>
               </div>
+              <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t('missionControl')}</h1>
+              <p className="text-sm text-muted-foreground mt-1">{t('signInToContinue')}</p>
+            </div>
 
-              <div className="flex items-center gap-2">
+            {/* Status banners */}
+            {pendingApproval && (
+              <div className="mb-5 p-4 rounded-xl bg-amber-500/8 border border-amber-500/15 text-center">
+                <div className="flex justify-center mb-2">
+                  <svg className="w-8 h-8 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12,6 12,12 16,14" />
+                  </svg>
+                </div>
+                <div className="text-sm font-medium text-amber-200">{t('accessRequestSubmitted')}</div>
+                <p className="text-xs text-muted-foreground mt-1">{t('accessRequestDescription')}</p>
+                <Button
+                  onClick={() => { setPendingApproval(false); setError(''); setGoogleLoading(false) }}
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 text-xs"
+                >
+                  {t('tryAgain')}
+                </Button>
+              </div>
+            )}
+
+            {needsSetup && (
+              <div className="mb-5 p-4 rounded-xl bg-blue-500/8 border border-blue-500/15 text-center">
+                <div className="flex justify-center mb-2">
+                  <svg className="w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="text-sm font-medium text-blue-200">{t('noAdminAccount')}</div>
+                <p className="text-xs text-muted-foreground mt-1">{t('noAdminDescription')}</p>
+                <Button
+                  onClick={() => { window.location.href = '/setup' }}
+                  size="sm"
+                  className="mt-3"
+                >
+                  {t('createAdminAccount')}
+                </Button>
+              </div>
+            )}
+
+            {error && (
+              <div role="alert" className="mb-5 p-3 rounded-xl bg-destructive/8 border border-destructive/15 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            {/* Advanced Settings */}
+            <div className="mb-5 rounded-xl border border-border/40 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(o => !o)}
+                className="w-full px-3 py-2.5 flex items-center justify-between text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="8" r="1.5" />
+                    <path d="M8 3.5V5M8 11v1.5M3.5 8H5M11 8h1.5M4.93 4.93l1.06 1.06M9.99 9.99l1.06 1.06M4.93 11.07l1.06-1.06M9.99 6.01l1.06-1.06" />
+                  </svg>
+                  {t('advancedSettings')}
+                </span>
+                <svg
+                  className={`w-4 h-4 transition-transform duration-300 ${advancedOpen ? 'rotate-180' : ''}`}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </button>
+
+              {advancedOpen && (
+                <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/40 bg-secondary/20">
+                  <div>
+                    <label htmlFor="gateway-url" className="block text-sm font-medium text-foreground mb-1.5">
+                      {t('gatewayUrl')}
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        id="gateway-url"
+                        value={gatewayPreset}
+                        onChange={e => handleGatewayUrlChange(e.target.value)}
+                        className="flex-1 h-10 px-3 rounded-lg bg-secondary border border-border/60 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-smooth appearance-none cursor-pointer"
+                      >
+                        {GATEWAY_URL_PRESETS.map(url => (
+                          <option key={url} value={url}>{url}</option>
+                        ))}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    {gatewayPreset === 'custom' && (
+                      <input
+                        type="text"
+                        value={gatewayCustom}
+                        onChange={e => handleGatewayCustomChange(e.target.value)}
+                        placeholder={t('gatewayUrlPlaceholder')}
+                        className="mt-2 w-full h-10 px-3 rounded-lg bg-secondary border border-border/60 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-smooth"
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={connectionStatus === 'testing' || !getEffectiveGatewayUrl()}
+                      className="h-9 px-3 rounded-lg bg-secondary border border-border/60 text-foreground text-sm hover:bg-muted-foreground/10 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                      {connectionStatus === 'testing' ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-muted-foreground/40 border-t-muted-foreground rounded-full animate-spin" />
+                          {t('testConnection')}...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M13.5 2.5L2.5 13.5M13.5 2.5l-4 4m4-4l-4-4m4 4l-4 4" />
+                          </svg>
+                          {t('testConnection')}
+                        </>
+                      )}
+                    </button>
+
+                    {connectionStatus === 'success' && (
+                      <span className="text-xs text-green-400 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M13 3L6 10l-3-3" />
+                        </svg>
+                        {t('connectionSuccess')}
+                      </span>
+                    )}
+                    {connectionStatus === 'failed' && (
+                      <span className="text-xs text-destructive flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 4L4 12M4 4l8 8" />
+                        </svg>
+                        {t('connectionFailed')}{connectionError ? `: ${connectionError}` : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Google Sign-In */}
+            {googleClientId && (
+              <div className={pendingApproval ? 'opacity-50 pointer-events-none' : ''}>
                 <button
                   type="button"
-                  onClick={handleTestConnection}
-                  disabled={connectionStatus === 'testing' || !getEffectiveGatewayUrl()}
-                  className="h-9 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm hover:bg-muted-foreground/10 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  onClick={handleGoogleSignIn}
+                  disabled={!googleReady || googleLoading || loading}
+                  className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border/60 bg-surface-1 text-foreground text-sm font-medium hover:bg-surface-2 hover:border-border transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {connectionStatus === 'testing' ? (
+                  {googleLoading ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-muted-foreground/40 border-t-muted-foreground rounded-full animate-spin" />
-                      {t('testConnection')}...
+                      <div className="w-4 h-4 border-2 border-foreground/20 border-t-void-cyan rounded-full animate-spin" />
+                      {t('signingIn')}
                     </>
                   ) : (
                     <>
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M13.5 2.5L2.5 13.5M13.5 2.5l-4 4m4-4l-4-4m4 4l-4 4" />
-                      </svg>
-                      {t('testConnection')}
+                      <GoogleIcon className="w-[18px] h-[18px]" />
+                      {t('signInWithGoogle')}
                     </>
                   )}
                 </button>
+                {!googleReady && (
+                  <div className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                    <span className="w-3 h-3 border border-foreground/10 border-t-void-cyan/60 rounded-full animate-spin" />
+                    {t('loadingGoogleSignIn')}
+                  </div>
+                )}
 
-                {connectionStatus === 'success' && (
-                  <span className="text-xs text-green-500 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M13 3L6 10l-3-3" />
-                    </svg>
-                    {t('connectionSuccess')}
-                  </span>
-                )}
-                {connectionStatus === 'failed' && (
-                  <span className="text-xs text-destructive flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 4L4 12M4 4l8 8" />
-                    </svg>
-                    {t('connectionFailed')}{connectionError ? `: ${connectionError}` : ''}
-                  </span>
-                )}
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border/50" />
+                  <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{tc('or')}</span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border/50" />
+                </div>
               </div>
+            )}
+
+            {/* Local login form */}
+            <form onSubmit={handleSubmit} className={`space-y-4 ${pendingApproval ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">{t('username')}</label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl bg-secondary/60 border border-border/40 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-smooth"
+                  placeholder={t('enterUsername')}
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  aria-required="true"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">{t('password')}</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl bg-secondary/60 border border-border/40 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-smooth"
+                  placeholder={t('enterPassword')}
+                  autoComplete="current-password"
+                  required
+                  aria-required="true"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                size="lg"
+                className="w-full rounded-xl h-11 text-sm font-semibold tracking-wide"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    {t('signingIn')}
+                  </>
+                ) : (
+                  t('signIn')
+                )}
+              </Button>
+            </form>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 sm:px-8 pb-6 pt-2">
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-px w-8 bg-gradient-to-r from-transparent to-border/40" />
+              <p className="text-center text-[11px] text-muted-foreground tracking-wide">{t('orchestrationTagline')}</p>
+              <div className="h-px w-8 bg-gradient-to-l from-transparent to-border/40" />
             </div>
-          )}
+          </div>
         </div>
-
-        {/* Google Sign-In button — shown only when client ID is configured */}
-        {googleClientId && (
-          <div className={pendingApproval ? 'opacity-50 pointer-events-none' : ''}>
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={!googleReady || googleLoading || loading}
-              className="w-full h-10 flex items-center justify-center gap-3 rounded-lg border border-border bg-white text-[#3c4043] text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {googleLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  {t('signingIn')}
-                </>
-              ) : (
-                <>
-                  <GoogleIcon className="w-[18px] h-[18px]" />
-                  {t('signInWithGoogle')}
-                </>
-              )}
-            </button>
-            {!googleReady && (
-              <p className="text-center text-xs text-muted-foreground mt-2">{t('loadingGoogleSignIn')}</p>
-            )}
-
-            {/* Divider */}
-            <div className="my-4 flex items-center gap-2">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">{tc('or')}</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className={`space-y-4 ${pendingApproval ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">{t('username')}</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth"
-              placeholder={t('enterUsername')}
-              autoComplete="username"
-              autoFocus
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">{t('password')}</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth"
-              placeholder={t('enterPassword')}
-              autoComplete="current-password"
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={loading}
-            size="lg"
-            className="w-full rounded-lg"
-          >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                {t('signingIn')}
-              </>
-            ) : (
-              t('signIn')
-            )}
-          </Button>
-        </form>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">{t('orchestrationTagline')}</p>
       </div>
     </div>
   )

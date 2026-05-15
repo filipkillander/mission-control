@@ -8,7 +8,7 @@ export function buildMissionControlCsp(input: { nonce: string; googleEnabled: bo
     `frame-ancestors 'none'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' blob:${googleEnabled ? ' https://accounts.google.com' : ''}`,
     `style-src 'self' 'unsafe-inline'`,
-    `style-src-elem 'self' 'unsafe-inline'`,
+    `style-src-elem 'self' 'unsafe-inline'${googleEnabled ? ' https://accounts.google.com' : ''}`,
     `style-src-attr 'unsafe-inline'`,
     `connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://cdn.jsdelivr.net${googleEnabled ? ' https://accounts.google.com' : ''}`,
     `img-src 'self' data: blob:${googleEnabled ? ' https://*.googleusercontent.com https://lh3.googleusercontent.com' : ''}`,
