@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { execFileSync } from 'child_process'
-import fs from 'fs'
 import os from 'os'
-import path from 'path'
 import { requireRole, getUserFromRequest } from '@/lib/auth'
 import { getDatabase, logAuditEvent } from '@/lib/db'
 import { logger } from '@/lib/logger'
@@ -40,16 +38,34 @@ const SERVICE_ACCOUNTS = new Set([
   'ntp', 'chrony', 'systemd-network', 'systemd-resolve',
 ])
 
+function joinUserPath(root: string, ...parts: string[]): string {
+  const base = root.endsWith('/') ? root.slice(0, -1) : root
+  return [base, ...parts.map((part) => part.replace(/^\/+|\/+$/g, ''))].filter(Boolean).join('/')
+}
+
+function pathExists(filePath: string): boolean {
+  try {
+    execFileSync('/usr/bin/test', ['-e', filePath], { timeout: 2000, stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function ensureDir(dir: string): void {
+  execFileSync('/bin/mkdir', ['-p', dir], { timeout: 5000, stdio: 'pipe' })
+}
+
 /** Check if a CLI tool (claude, codex) is accessible for a given user home dir */
 function checkToolExists(homeDir: string, tool: string): boolean {
   // Check common install locations relative to user home
   const candidates = [
-    path.join(homeDir, '.local', 'bin', tool),
-    path.join(homeDir, '.npm-global', 'bin', tool),
-    path.join(homeDir, `.${tool}`),             // e.g. ~/.claude, ~/.openclaw config dir = installed
+    joinUserPath(homeDir, '.local', 'bin', tool),
+    joinUserPath(homeDir, '.npm-global', 'bin', tool),
+    joinUserPath(homeDir, `.${tool}`),             // e.g. ~/.claude, ~/.openclaw config dir = installed
   ]
   for (const p of candidates) {
-    try { if (fs.existsSync(p)) return true } catch {}
+    if (pathExists(p)) return true
   }
   // Also check system-wide
   try {
@@ -68,14 +84,14 @@ function installToolForUser(
   try {
     if (tool === 'openclaw') {
       // openclaw is managed by MC — create dir structure + install latest from npm
-      const openclawDir = path.join(homeDir, '.openclaw')
-      const workspaceDir = path.join(homeDir, 'workspace')
+      const openclawDir = joinUserPath(homeDir, '.openclaw')
+      const workspaceDir = joinUserPath(homeDir, 'workspace')
       for (const dir of [openclawDir, workspaceDir]) {
         try {
           execFileSync('/usr/bin/sudo', ['-n', 'install', '-d', '-o', username, dir], { timeout: 5000, stdio: 'pipe' })
         } catch {
           // Fallback: mkdir directly (works if running as that user or root)
-          fs.mkdirSync(dir, { recursive: true })
+          ensureDir(dir)
         }
       }
       // Install latest openclaw from GitHub (always latest) with npm fallback
@@ -104,11 +120,11 @@ function installToolForUser(
         })
       } catch (npmErr: any) {
         // Fallback: create config dir so checkToolExists detects it
-        const claudeDir = path.join(homeDir, '.claude')
+        const claudeDir = joinUserPath(homeDir, '.claude')
         try {
           execFileSync('/usr/bin/sudo', ['-n', 'install', '-d', '-o', username, claudeDir], { timeout: 5000, stdio: 'pipe' })
         } catch {
-          fs.mkdirSync(claudeDir, { recursive: true })
+          ensureDir(claudeDir)
         }
         const msg = npmErr?.stderr?.toString?.()?.slice(0, 200) || npmErr?.message || 'npm install failed'
         return { success: false, error: msg }
@@ -126,11 +142,11 @@ function installToolForUser(
         })
       } catch (npmErr: any) {
         // Fallback: create config dir so checkToolExists detects it
-        const codexDir = path.join(homeDir, '.codex')
+        const codexDir = joinUserPath(homeDir, '.codex')
         try {
           execFileSync('/usr/bin/sudo', ['-n', 'install', '-d', '-o', username, codexDir], { timeout: 5000, stdio: 'pipe' })
         } catch {
-          fs.mkdirSync(codexDir, { recursive: true })
+          ensureDir(codexDir)
         }
         const msg = npmErr?.stderr?.toString?.()?.slice(0, 200) || npmErr?.message || 'npm install failed'
         return { success: false, error: msg }
@@ -373,8 +389,8 @@ export async function POST(request: NextRequest) {
 
     // Determine home directory for the new user
     const homeDir = platform === 'darwin' ? `/Users/${username}` : `/home/${username}`
-    const openclawHome = path.posix.join(homeDir, '.openclaw')
-    const workspaceRoot = path.posix.join(homeDir, 'workspace')
+    const openclawHome = joinUserPath(homeDir, '.openclaw')
+    const workspaceRoot = joinUserPath(homeDir, 'workspace')
 
     // Register as tenant in DB
     const tenantRes = db.prepare(`

@@ -12,7 +12,7 @@ const nextConfig = {
     // process.cwd() under `pnpm start:standalone`) reports every file the
     // standalone build doesn't bundle (e.g. `src/lib/__tests__/`) as
     // deleted — blocking the dirty-tree check and breaking self-update.
-    '/*': ['./.data/**/*', './.git/**/*'],
+    '/*': ['./.data/**/*', './.git/**/*', './next.config.js'],
   },
   turbopack: {
     root: __dirname,
