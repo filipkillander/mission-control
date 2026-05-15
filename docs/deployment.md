@@ -92,7 +92,7 @@ make status
 
 ### Mode-aware Make workflow (minimal commands)
 
-For day-to-day operations, see the [Daily Ops Cheatsheet](./ops-cheatsheet.md).
+For day-to-day operations, use the mode-aware command grammar below.
 
 Use `.env` + `.env.openclaw` as the single source of truth for mode/host/port/token values.
 

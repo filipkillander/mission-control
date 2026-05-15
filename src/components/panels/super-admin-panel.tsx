@@ -140,6 +140,8 @@ export function SuperAdminPanel() {
     setTimeout(() => setFeedback(null), 3500)
   }
 
+  const currentUsername = currentUser?.username || 'local'
+
   const load = useCallback(async () => {
     try {
       const [tenantsRes, jobsRes, gatewaysRes, schedulerRes] = await Promise.all([
@@ -171,7 +173,7 @@ export function SuperAdminPanel() {
             id: -1,
             slug: 'local-system',
             display_name: 'Local Mission Control',
-            linux_user: currentUser?.username || 'local',
+            linux_user: currentUsername,
             created_by: 'local',
             owner_gateway: primaryGateway?.name || 'local',
             status: 'active',
@@ -240,7 +242,7 @@ export function SuperAdminPanel() {
     } finally {
       setLoading(false)
     }
-  }, [currentUser?.username, isLocal])
+  }, [currentUsername, isLocal])
 
   const loadJobDetail = useCallback(async (jobId: number) => {
     if (isLocal && jobId < 0) {

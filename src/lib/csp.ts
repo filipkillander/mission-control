@@ -10,7 +10,7 @@ export function buildMissionControlCsp(input: { nonce: string; googleEnabled: bo
     `style-src 'self' 'unsafe-inline'`,
     `style-src-elem 'self' 'unsafe-inline'`,
     `style-src-attr 'unsafe-inline'`,
-    `connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://cdn.jsdelivr.net`,
+    `connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://cdn.jsdelivr.net${googleEnabled ? ' https://accounts.google.com' : ''}`,
     `img-src 'self' data: blob:${googleEnabled ? ' https://*.googleusercontent.com https://lh3.googleusercontent.com' : ''}`,
     `font-src 'self' data:`,
     `frame-src 'self'${googleEnabled ? ' https://accounts.google.com' : ''}`,

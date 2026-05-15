@@ -1,15 +1,6 @@
 import pino from 'pino'
 
-function hasPinoPretty(): boolean {
-  try {
-    require.resolve('pino-pretty')
-    return true
-  } catch {
-    return false
-  }
-}
-
-const usePretty = process.env.NODE_ENV !== 'production' && hasPinoPretty()
+const usePretty = process.env.NODE_ENV !== 'production' && process.env.MC_LOG_PRETTY === '1'
 
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',

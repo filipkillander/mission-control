@@ -678,6 +678,11 @@ function isDirectDispatchAvailable(provider?: DirectProvider): boolean {
   return !!getAnthropicApiKey() || !!getOpenAIApiKey() || !!getLocalEndpoint() || isClaudeCliAvailable()
 }
 
+function canDispatchDirectly(task: DispatchableTask): boolean {
+  const model = classifyDirectModel(task)
+  return isDirectDispatchAvailable(pickProvider(model))
+}
+
 /**
  * Dispatch via the host-mounted Claude Code CLI, using the operator's existing
  * login (no API key required). Reads the prompt over stdin and asks for a
@@ -956,18 +961,18 @@ export async function runAegisReviews(): Promise<{ ok: boolean; message: string 
     try {
       const prompt = buildReviewPrompt(task)
       let agentResponse: AgentResponseParsed
+      const reviewTask: DispatchableTask = {
+        id: task.id, title: task.title, description: task.description,
+        status: 'quality_review', priority: 'high', assigned_to: 'aegis',
+        workspace_id: task.workspace_id, agent_name: 'aegis', agent_id: 0,
+        agent_config: task.agent_config, ticket_prefix: task.ticket_prefix,
+        project_ticket_no: task.project_ticket_no, project_id: null,
+      }
 
-      if (!isGatewayAvailable() && isDirectDispatchAvailable()) {
+      if (!isGatewayAvailable() && canDispatchDirectly(reviewTask)) {
         // Direct API review — no gateway needed (Anthropic / OpenAI / local).
         // Pass through agent_config so Aegis honors per-agent dispatchModel
         // overrides and routes to the matching provider.
-        const reviewTask: DispatchableTask = {
-          id: task.id, title: task.title, description: task.description,
-          status: 'quality_review', priority: 'high', assigned_to: 'aegis',
-          workspace_id: task.workspace_id, agent_name: 'aegis', agent_id: 0,
-          agent_config: task.agent_config, ticket_prefix: task.ticket_prefix,
-          project_ticket_no: task.project_ticket_no, project_id: null,
-        }
         agentResponse = await callDirectly(reviewTask, prompt)
       } else {
         // Resolve the gateway agent ID from config, falling back to assigned_to or default
@@ -1259,7 +1264,7 @@ export async function dispatchAssignedTasks(): Promise<{ ok: boolean; message: s
         : null
 
       let agentResponse: AgentResponseParsed
-      const useDirectApi = !isGatewayAvailable() && isDirectDispatchAvailable()
+      const useDirectApi = !isGatewayAvailable() && canDispatchDirectly(task)
 
       if (useDirectApi && !targetSession) {
         // Direct API dispatch — provider chosen by `dispatchModel` prefix

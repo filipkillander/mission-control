@@ -576,35 +576,40 @@ export function CronManagementPanel() {
 
   const dayStart = startOfDay(calendarDate)
   const dayEnd = addDays(dayStart, 1)
+  const dayStartMs = dayStart.getTime()
+  const dayEndMs = dayEnd.getTime()
 
   const weekStart = getWeekStart(calendarDate)
   const weekDays = Array.from({ length: 7 }, (_, idx) => addDays(weekStart, idx))
+  const weekStartMs = weekStart.getTime()
+  const weekEndMs = addDays(weekStart, 7).getTime()
 
   const monthGridStart = getMonthStartGrid(calendarDate)
   const monthDays = Array.from({ length: 42 }, (_, idx) => addDays(monthGridStart, idx))
+  const monthGridStartMs = monthGridStart.getTime()
+  const monthGridEndMs = addDays(monthGridStart, 42).getTime()
 
-  const calendarBounds = useMemo(() => {
-    if (calendarView === 'day') {
-      return { startMs: dayStart.getTime(), endMs: dayEnd.getTime() }
-    }
-    if (calendarView === 'week') {
-      return { startMs: weekStart.getTime(), endMs: addDays(weekStart, 7).getTime() }
-    }
-    if (calendarView === 'month') {
-      return { startMs: monthGridStart.getTime(), endMs: addDays(monthGridStart, 42).getTime() }
-    }
-    const agendaStart = Date.now()
-    return { startMs: agendaStart, endMs: addDays(startOfDay(new Date()), 30).getTime() }
-  }, [calendarView, dayEnd, dayStart, monthGridStart, weekStart])
+  const agendaStartMs = Date.now()
+  const agendaEndMs = addDays(startOfDay(new Date()), 30).getTime()
+  const calendarStartMs =
+    calendarView === 'day' ? dayStartMs :
+      calendarView === 'week' ? weekStartMs :
+        calendarView === 'month' ? monthGridStartMs :
+          agendaStartMs
+  const calendarEndMs =
+    calendarView === 'day' ? dayEndMs :
+      calendarView === 'week' ? weekEndMs :
+        calendarView === 'month' ? monthGridEndMs :
+          agendaEndMs
 
   // Aggregate: unique jobs per day with run count (for week/month cells)
-  const jobSummariesByDay = useMemo(() => {
+  const jobSummariesByDay = (() => {
     const dayMap = new Map<string, DayJobSummary[]>()
     for (const job of filteredJobs) {
-      const occurrences = getCronOccurrences(job.schedule, calendarBounds.startMs, calendarBounds.endMs, 5000)
+      const occurrences = getCronOccurrences(job.schedule, calendarStartMs, calendarEndMs, 5000)
 
       // Fallback for unparseable schedules
-      if (occurrences.length === 0 && typeof job.nextRun === 'number' && job.nextRun >= calendarBounds.startMs && job.nextRun < calendarBounds.endMs) {
+      if (occurrences.length === 0 && typeof job.nextRun === 'number' && job.nextRun >= calendarStartMs && job.nextRun < calendarEndMs) {
         occurrences.push({ atMs: job.nextRun, dayKey: buildDayKey(new Date(job.nextRun)) })
       }
 
@@ -632,24 +637,24 @@ export function CronManagementPanel() {
       summaries.sort((a, b) => a.firstRunMs - b.firstRunMs)
     }
     return dayMap
-  }, [calendarBounds.endMs, calendarBounds.startMs, filteredJobs])
+  })()
 
   // Flat occurrence list for agenda view only (capped per job)
-  const calendarOccurrences = useMemo(() => {
+  const calendarOccurrences = (() => {
     if (calendarView !== 'agenda') return []
     const rows: Array<{ job: CronJob; atMs: number; dayKey: string }> = []
     for (const job of filteredJobs) {
-      const occurrences = getCronOccurrences(job.schedule, calendarBounds.startMs, calendarBounds.endMs, 50)
+      const occurrences = getCronOccurrences(job.schedule, calendarStartMs, calendarEndMs, 50)
       for (const occurrence of occurrences) {
         rows.push({ job, atMs: occurrence.atMs, dayKey: occurrence.dayKey })
       }
-      if (occurrences.length === 0 && typeof job.nextRun === 'number' && job.nextRun >= calendarBounds.startMs && job.nextRun < calendarBounds.endMs) {
+      if (occurrences.length === 0 && typeof job.nextRun === 'number' && job.nextRun >= calendarStartMs && job.nextRun < calendarEndMs) {
         rows.push({ job, atMs: job.nextRun, dayKey: buildDayKey(new Date(job.nextRun)) })
       }
     }
     rows.sort((a, b) => a.atMs - b.atMs)
     return rows.slice(0, 500)
-  }, [calendarBounds.endMs, calendarBounds.startMs, calendarView, filteredJobs])
+  })()
 
   const dayJobSummaries = jobSummariesByDay.get(buildDayKey(dayStart)) || []
 
