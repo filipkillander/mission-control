@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { fetchJsonWithTimeout } from '@/lib/fetch-timeout'
 
 interface RuntimeStatus {
   id: string
@@ -25,16 +26,15 @@ export function EmptyStateLaunchpad({ agentCount, taskCount, onNavigate }: Props
 
   useEffect(() => {
     // Try the agent-runtimes API first, fall back to capabilities endpoint
-    fetch('/api/agent-runtimes')
-      .then(r => r.ok ? r.json() : null)
+    fetchJsonWithTimeout<any>('/api/agent-runtimes', {}, 6000)
       .then(d => {
         if (d?.runtimes) {
           setRuntimes(d.runtimes)
           return
         }
         // Fallback: use capabilities endpoint for detection
-        return fetch('/api/status?action=capabilities')
-          .then(r => r.ok ? r.json() : {})
+        return fetchJsonWithTimeout<Record<string, unknown>>('/api/status?action=capabilities', {}, 7000)
+          .then(caps => caps || {})
           .then((caps: Record<string, unknown>) => {
             const detected: RuntimeStatus[] = []
             if (caps.openclawHome) detected.push({ id: 'openclaw', name: 'OpenClaw', installed: true })

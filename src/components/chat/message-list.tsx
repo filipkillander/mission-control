@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useMissionControl, ChatMessage } from '@/store'
+import { fetchWithTimeout } from '@/lib/fetch-timeout'
 import { MessageBubble } from './message-bubble'
 import { Button } from '@/components/ui/button'
 
@@ -98,7 +99,7 @@ export function MessageList() {
     updatePendingMessage(msg.id, { pendingStatus: 'sending' })
 
     try {
-      const res = await fetch('/api/chat/messages', {
+      const res = await fetchWithTimeout('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +110,7 @@ export function MessageList() {
           message_type: msg.message_type,
           forward: true,
         }),
-      })
+      }, 15000)
 
       if (res.ok) {
         const data = await res.json()

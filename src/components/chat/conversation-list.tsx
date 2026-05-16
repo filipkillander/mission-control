@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useMissionControl, Conversation } from '@/store'
 import { useSmartPoll } from '@/lib/use-smart-poll'
+import { fetchWithTimeout } from '@/lib/fetch-timeout'
 import { createClientLogger } from '@/lib/client-logger'
 import { Button } from '@/components/ui/button'
 import { SessionKindAvatar, SessionKindPill } from './session-kind-brand'
@@ -200,11 +201,11 @@ export function ConversationList({ onNewConversation: _onNewConversation }: Conv
       if (name !== undefined) body.name = name || null
       if (color !== undefined) body.color = color || null
 
-      const res = await fetch('/api/chat/session-prefs', {
+      const res = await fetchWithTimeout('/api/chat/session-prefs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      })
+      }, 8000)
       if (!res.ok) {
         log.error('Failed to save session pref, server returned', res.status)
       }
@@ -251,8 +252,8 @@ export function ConversationList({ onNewConversation: _onNewConversation }: Conv
     try {
       const sessionsUrl = '/api/sessions'
       const requests: Promise<Response>[] = [
-        fetch(sessionsUrl),
-        fetch('/api/chat/session-prefs'),
+        fetchWithTimeout(sessionsUrl, {}, 12000),
+        fetchWithTimeout('/api/chat/session-prefs', {}, 8000),
       ]
 
       const [sessionsRes, prefsRes] = await Promise.all(requests)

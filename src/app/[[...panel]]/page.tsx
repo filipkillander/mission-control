@@ -57,6 +57,7 @@ import { useServerEvents } from '@/lib/use-server-events'
 import { completeNavigationTiming } from '@/lib/navigation-metrics'
 import { panelHref, useNavigateToPanel } from '@/lib/navigation'
 import { clearOnboardingDismissedThisSession, clearOnboardingReplayFromStart, getOnboardingSessionDecision, markOnboardingReplayFromStart, readOnboardingDismissedThisSession } from '@/lib/onboarding-session'
+import { fetchJsonWithTimeout, fetchWithTimeout } from '@/lib/fetch-timeout'
 import { Button } from '@/components/ui/button'
 import { useMissionControl } from '@/store'
 
@@ -195,7 +196,7 @@ export default function Home() {
 
     const connectWithPrimaryGateway = async (preferredWsUrl?: string | null): Promise<{ attempted: boolean; connected: boolean }> => {
       try {
-        const gatewaysRes = await fetch('/api/gateways')
+        const gatewaysRes = await fetchWithTimeout('/api/gateways', {}, 5000)
         if (!gatewaysRes.ok) return { attempted: false, connected: false }
         const gatewaysJson = await gatewaysRes.json().catch(() => ({}))
         const gateways = Array.isArray(gatewaysJson?.gateways) ? gatewaysJson.gateways as GatewaySummary[] : []
@@ -204,11 +205,11 @@ export default function Home() {
         const primaryGateway = gateways.find(gw => Number(gw?.is_primary) === 1) || gateways[0]
         if (!primaryGateway?.id) return { attempted: true, connected: false }
 
-        const connectRes = await fetch('/api/gateways/connect', {
+        const connectRes = await fetchWithTimeout('/api/gateways/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: primaryGateway.id }),
-        })
+        }, 8000)
         if (!connectRes.ok) return { attempted: true, connected: false }
 
         const payload = await connectRes.json().catch(() => ({}))
@@ -225,7 +226,7 @@ export default function Home() {
     }
 
     // Fetch current user
-    fetch('/api/auth/me')
+    fetchWithTimeout('/api/auth/me', {}, 5000)
       .then(async (res) => {
         if (res.ok) return res.json()
         if (res.status === 401) {
@@ -237,8 +238,7 @@ export default function Home() {
       .catch(() => { markStep('auth') })
 
     // Check for available updates
-    fetch('/api/releases/check')
-      .then(res => res.ok ? res.json() : null)
+    fetchJsonWithTimeout<any>('/api/releases/check', {}, 6000)
       .then(data => {
         if (data?.updateAvailable) {
           setUpdateAvailable({
@@ -251,8 +251,7 @@ export default function Home() {
       .catch(() => {})
 
     // Check for OpenClaw updates
-    fetch('/api/openclaw/version')
-      .then(res => res.ok ? res.json() : null)
+    fetchJsonWithTimeout<any>('/api/openclaw/version', {}, 6000)
       .then(data => {
         if (data?.updateAvailable) {
           setOpenclawUpdate({
@@ -269,8 +268,7 @@ export default function Home() {
       .catch(() => {})
 
     // Check capabilities, then conditionally connect to gateway
-    fetch('/api/status?action=capabilities')
-      .then(res => res.ok ? res.json() : null)
+    fetchJsonWithTimeout<any>('/api/status?action=capabilities', {}, 7000)
       .then(async data => {
         const localGatewayUrl = localStorage.getItem(STORAGE_GATEWAY_URL)
 
@@ -339,8 +337,7 @@ export default function Home() {
       })
 
     // Check onboarding state
-    fetch('/api/onboarding')
-      .then(res => res.ok ? res.json() : null)
+    fetchJsonWithTimeout<any>('/api/onboarding', {}, 6000)
       .then(data => {
         const decision = getOnboardingSessionDecision({
           isAdmin: data?.isAdmin === true,
@@ -364,8 +361,7 @@ export default function Home() {
       .catch(() => { markStep('config') })
     // Preload workspace data in parallel
     Promise.allSettled([
-      fetch('/api/agents')
-        .then(r => r.ok ? r.json() : null)
+      fetchJsonWithTimeout<any>('/api/agents', {}, 8000)
         .then((agentsData) => {
           if (agentsData?.agents) setAgents(agentsData.agents)
         })
@@ -373,14 +369,12 @@ export default function Home() {
       // Sessions can be slow with many JSONL files — don't block boot
       (() => {
         markStep('sessions')
-        return fetch('/api/sessions')
-          .then(r => r.ok ? r.json() : null)
+        return fetchJsonWithTimeout<any>('/api/sessions', {}, 12000)
           .then((sessionsData) => {
             if (sessionsData?.sessions) setSessions(sessionsData.sessions)
           })
       })(),
-      fetch('/api/projects')
-        .then(r => r.ok ? r.json() : null)
+      fetchJsonWithTimeout<any>('/api/projects', {}, 8000)
         .then((projectsData) => {
           if (projectsData?.projects) setProjects(projectsData.projects)
         })
@@ -388,14 +382,12 @@ export default function Home() {
       // Memory graph can be slow — don't block boot
       (() => {
         markStep('memory')
-        return fetch('/api/memory/graph?agent=all')
-          .then(r => r.ok ? r.json() : null)
+        return fetchJsonWithTimeout<any>('/api/memory/graph?agent=all', {}, 12000)
           .then((graphData) => {
             if (graphData?.agents) setMemoryGraphAgents(graphData.agents)
           })
       })(),
-      fetch('/api/skills')
-        .then(r => r.ok ? r.json() : null)
+      fetchJsonWithTimeout<any>('/api/skills', {}, 8000)
         .then((skillsData) => {
           if (skillsData?.skills) setSkillsData(skillsData.skills, skillsData.groups || [], skillsData.total || 0)
         })
@@ -507,7 +499,7 @@ function ContentRouter({ tab }: { tab: string }) {
             size="sm"
             onClick={async () => {
               setInterfaceMode('full')
-              try { await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { 'general.interface_mode': 'full' } }) }) } catch {}
+              try { await fetchWithTimeout('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { 'general.interface_mode': 'full' } }) }, 6000) } catch {}
             }}
           >
             {tp('switchToFull')}

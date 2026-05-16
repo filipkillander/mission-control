@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useMissionControl } from '@/store'
 import { useNavigateToPanel } from '@/lib/navigation'
 import { createClientLogger } from '@/lib/client-logger'
+import { fetchJsonWithTimeout } from '@/lib/fetch-timeout'
 import { Button } from '@/components/ui/button'
 
 const log = createClientLogger('Sidebar')
@@ -70,8 +71,7 @@ export function Sidebar() {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/status?action=overview')
-      .then(res => res.json())
+    fetchJsonWithTimeout('/api/status?action=overview', {}, 6000)
       .then(data => { if (!cancelled) setSystemStats(readSystemStats(data)) })
       .catch(err => log.error('Failed to fetch system status:', err))
     return () => { cancelled = true }

@@ -12,6 +12,7 @@ import { SessionMessage, shouldShowTimestamp, type SessionTranscriptMessage } fr
 import { getSessionKindLabel, SessionKindAvatar } from './session-kind-brand'
 import { TerminalView } from '@/components/terminal/terminal-view'
 import { SplitPaneLayout, type SplitPane } from '@/components/terminal/split-pane-layout'
+import { fetchJsonWithTimeout, fetchWithTimeout } from '@/lib/fetch-timeout'
 
 const log = createClientLogger('ChatWorkspace')
 
@@ -79,10 +80,8 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
   useEffect(() => {
     async function loadAgents() {
       try {
-        const res = await fetch('/api/agents')
-        if (!res.ok) return
-        const data = await res.json()
-        if (data.agents) setAgents(data.agents)
+        const data = await fetchJsonWithTimeout<any>('/api/agents', {}, 8000)
+        if (data?.agents) setAgents(data.agents)
       } catch (err) {
         log.error('Failed to load agents:', err)
       }
@@ -100,10 +99,8 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
     }
 
     try {
-      const res = await fetch(`/api/chat/messages?conversation_id=${encodeURIComponent(activeConversation)}&limit=100`)
-      if (!res.ok) return
-      const data = await res.json()
-      if (data.messages) setChatMessages(data.messages)
+      const data = await fetchJsonWithTimeout<any>(`/api/chat/messages?conversation_id=${encodeURIComponent(activeConversation)}&limit=100`, {}, 8000)
+      if (data?.messages) setChatMessages(data.messages)
     } catch (err) {
       log.error('Failed to load messages:', err)
     }
@@ -173,7 +170,7 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
     setIsGenerating(true)
 
     try {
-      const res = await fetch('/api/chat/messages', {
+      const res = await fetchWithTimeout('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -185,7 +182,7 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
           attachments,
           forward: true,
         }),
-      })
+      }, 15000)
 
       if (res.ok) {
         const data = await res.json()
@@ -255,7 +252,7 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
       ? `/api/sessions/transcript/gateway?key=${encodeURIComponent(sessionMeta.sessionKey || sessionMeta.sessionId)}&limit=50`
       : `/api/sessions/transcript?kind=${encodeURIComponent(sessionMeta.sessionKind)}&id=${encodeURIComponent(sessionMeta.sessionId)}&limit=40`
 
-    fetch(url)
+    fetchWithTimeout(url, {}, 12000)
       .then(async (res) => {
         if (!res.ok) {
           const payload = await res.json().catch(() => ({}))
@@ -296,11 +293,11 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
       color: payload.colorTag || null,
     }
 
-    const res = await fetch('/api/chat/session-prefs', {
+    const res = await fetchWithTimeout('/api/chat/session-prefs', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    })
+    }, 8000)
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       throw new Error(data?.error || 'Failed to save session preferences')
@@ -593,7 +590,7 @@ function SessionConversationView({
       if (isGatewaySession) {
         // Gateway sessions: forward message to the agent via chat messages API
         const agentName = session.agent || session.sessionId.split(':')[1] || 'unknown'
-        const res = await fetch('/api/chat/messages', {
+        const res = await fetchWithTimeout('/api/chat/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -605,7 +602,7 @@ function SessionConversationView({
             forward: true,
             sessionKey: session.sessionKey || undefined,
           }),
-        })
+        }, 15000)
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           throw new Error(data?.error || 'Failed to send message')
@@ -621,7 +618,7 @@ function SessionConversationView({
         // Debug logs retained (commented) for future troubleshooting of the
         // /chat → MC → host claude session pipeline.
         // console.log('[DEBUG chat] sending continue request', { kind: session.sessionKind, id: session.sessionId, promptLength: prompt.length })
-        const res = await fetch('/api/sessions/continue', {
+        const res = await fetchWithTimeout('/api/sessions/continue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -629,7 +626,7 @@ function SessionConversationView({
             id: session.sessionId,
             prompt,
           }),
-        })
+        }, 190000)
         // console.log('[DEBUG chat] continue response status:', res.status)
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
