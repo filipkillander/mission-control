@@ -123,7 +123,9 @@ export function Dashboard() {
     await Promise.allSettled(requests)
   }, [isLocal, setSessions])
 
-  useSmartPoll(loadDashboard, isLocal ? 15000 : 60000, { pauseWhenConnected: true })
+  // Gateway WS events do not cover local Codex/Hermes/OpenCode transcript
+  // scans, so dashboard polling must keep running while connected.
+  useSmartPoll(loadDashboard, isLocal ? 15000 : 60000)
 
   // Computed values
   const isSystemLoading = loading.system && !systemStats

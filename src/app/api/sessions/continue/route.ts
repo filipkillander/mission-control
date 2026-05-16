@@ -17,8 +17,16 @@ import { getOpenCodeExecutable } from '@/lib/opencode-sessions'
  */
 async function resolveExecutable(name: string): Promise<string> {
   if (name.includes('/')) return name
+  const envKey = `${name.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}_BIN`
+  const home = os.homedir()
   const candidates = [
-    process.env.CLAUDE_BIN,
+    process.env[envKey],
+    name === 'claude' ? process.env.CLAUDE_BIN : undefined,
+    name === 'codex' ? process.env.CODEX_BIN : undefined,
+    path.join(home, '.local', 'bin', name),
+    path.join(home, 'Library', 'pnpm', name),
+    path.join(home, '.npm-global', 'bin', name),
+    `/opt/homebrew/bin/${name}`,
     `/home/nextjs/.local/bin/${name}`,
     `/usr/local/bin/${name}`,
     `/usr/bin/${name}`,
@@ -263,9 +271,11 @@ export async function POST(request: NextRequest) {
       }
     } else if (kind === 'codex-cli') {
       const outputPath = path.join('/tmp', `mc-codex-last-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`)
+      const codexBin = await resolveExecutable('codex')
       try {
-        await runCommand('codex', ['exec', 'resume', sessionId, prompt, '--skip-git-repo-check', '-o', outputPath], {
+        await runCommand(codexBin, ['exec', 'resume', sessionId, '-', '--skip-git-repo-check', '-o', outputPath], {
           timeoutMs: 180000,
+          input: prompt,
         })
       } finally {
         // Read after run attempt either way for best-effort output
