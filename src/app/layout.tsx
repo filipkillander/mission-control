@@ -118,7 +118,7 @@ export default async function RootLayout({
             nonce={nonce}
           >
             <ThemeBackground />
-            <div className="h-screen overflow-hidden bg-background text-foreground">
+            <div className="h-dvh overflow-hidden bg-background text-foreground">
               {children}
             </div>
           </ThemeProvider>

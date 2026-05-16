@@ -100,7 +100,7 @@ function PageLoader({ steps }: { steps?: InitStep[] }) {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen bg-background void-bg"
+      className="flex min-h-dvh items-center justify-center bg-background void-bg"
     >
       <div className="flex flex-col items-center gap-8 w-64">
         {/* Animated logo sequence: OpenClaw + Claude converge → morph into MC mark */}

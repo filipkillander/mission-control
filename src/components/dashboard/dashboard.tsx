@@ -10,6 +10,21 @@ import { EmptyStateLaunchpad } from './empty-state-launchpad'
 import { WidgetGrid } from './widget-grid'
 import type { DbStats, ClaudeStats, LogLike, DashboardData } from './widget-primitives'
 
+async function fetchJson<T = any>(path: string, timeoutMs = 6000): Promise<T | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(path, { cache: 'no-store', signal: controller.signal })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export function Dashboard() {
   const {
     sessions,
@@ -55,10 +70,8 @@ export function Dashboard() {
     const requests: Promise<void>[] = []
 
     requests.push(
-      fetch('/api/status?action=dashboard')
-        .then(async (res) => {
-          if (!res.ok) return
-          const data = await res.json()
+      fetchJson('/api/status?action=dashboard')
+        .then((data) => {
           if (data && !data.error) {
             setSystemStats(data)
             if (data.db) setDbStats(data.db)
@@ -69,10 +82,8 @@ export function Dashboard() {
     )
 
     requests.push(
-      fetch('/api/sessions')
-        .then(async (res) => {
-          if (!res.ok) return
-          const data = await res.json()
+      fetchJson('/api/sessions')
+        .then((data) => {
           if (data && !data.error) setSessions(data.sessions || data)
         })
         .catch(() => {})
@@ -81,10 +92,8 @@ export function Dashboard() {
 
     if (isLocal) {
       requests.push(
-        fetch('/api/claude/sessions')
-          .then(async (res) => {
-            if (!res.ok) return
-            const data = await res.json()
+        fetchJson('/api/claude/sessions')
+          .then((data) => {
             if (data?.stats) setClaudeStats(data.stats)
           })
           .catch(() => {})
@@ -92,10 +101,8 @@ export function Dashboard() {
       )
 
       requests.push(
-        fetch('/api/github?action=stats')
-          .then(async (res) => {
-            if (!res.ok) return
-            const data = await res.json()
+        fetchJson('/api/github?action=stats')
+          .then((data) => {
             if (data && !data.error) setGithubStats(data)
           })
           .catch(() => {})
@@ -103,10 +110,8 @@ export function Dashboard() {
       )
 
       requests.push(
-        fetch('/api/hermes')
-          .then(async (res) => {
-            if (!res.ok) return
-            const data = await res.json()
+        fetchJson('/api/hermes')
+          .then((data) => {
             if (data?.cronJobCount != null) setHermesCronJobCount(data.cronJobCount)
           })
           .catch(() => {})
@@ -262,7 +267,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-5 space-y-4">
+    <div className="space-y-4 p-3 sm:p-5">
       <OnboardingChecklistWidget />
       <EmptyStateLaunchpad
         agentCount={dbStats?.agents.total ?? agents.length}

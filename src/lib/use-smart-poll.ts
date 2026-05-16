@@ -64,20 +64,30 @@ export function useSmartPoll(
     return true
   }, [enabled, pauseWhenConnected, pauseWhenDisconnected, pauseWhenSseConnected, connection.isConnected, connection.sseConnected])
 
-  const fire = useCallback(() => {
-    if (!shouldPoll()) return
+  const runCallback = useCallback(() => {
     const result = callbackRef.current()
     if (result instanceof Promise) {
-      result.catch(() => {
-        if (backoff) {
-          backoffMultiplierRef.current = Math.min(
-            backoffMultiplierRef.current + 0.5,
-            maxBackoffMultiplier
-          )
-        }
-      })
+      result
+        .then(() => {
+          if (backoff) backoffMultiplierRef.current = 1
+        })
+        .catch(() => {
+          if (backoff) {
+            backoffMultiplierRef.current = Math.min(
+              backoffMultiplierRef.current + 0.5,
+              maxBackoffMultiplier
+            )
+          }
+        })
+      return
     }
-  }, [shouldPoll, backoff, maxBackoffMultiplier])
+    if (backoff) backoffMultiplierRef.current = 1
+  }, [backoff, maxBackoffMultiplier])
+
+  const fire = useCallback(() => {
+    if (!shouldPoll()) return
+    runCallback()
+  }, [shouldPoll, runCallback])
 
   const startInterval = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -89,10 +99,10 @@ export function useSmartPoll(
 
     intervalRef.current = setInterval(() => {
       if (shouldPoll()) {
-        callbackRef.current()
+        runCallback()
       }
     }, effectiveInterval)
-  }, [intervalMs, shouldPoll, backoff])
+  }, [intervalMs, shouldPoll, backoff, runCallback])
 
   // Main effect: set up polling + visibility listener
   useEffect(() => {
@@ -100,7 +110,7 @@ export function useSmartPoll(
     // SSE delivers events (agent.updated, etc.) but not the full initial state.
     if (!initialFiredRef.current && enabled) {
       initialFiredRef.current = true
-      callbackRef.current()
+      runCallback()
     }
 
     // Start interval polling (respects shouldPoll for ongoing polls)
@@ -132,7 +142,7 @@ export function useSmartPoll(
         intervalRef.current = undefined
       }
     }
-  }, [fire, startInterval, enabled])
+  }, [fire, startInterval, enabled, runCallback])
 
   // Restart interval when connection state changes (WS or SSE)
   useEffect(() => {

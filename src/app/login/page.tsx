@@ -281,7 +281,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden">
       <NetworkBackground />
 
       {/* Language selector - corner, subtle */}

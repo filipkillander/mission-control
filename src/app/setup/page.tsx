@@ -180,7 +180,7 @@ export default function SetupPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="flex min-h-dvh items-center justify-center bg-background p-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
           {t('checkingSetupStatus')}
@@ -191,7 +191,7 @@ export default function SetupPage() {
 
   if (!setupAvailable) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="flex min-h-dvh items-center justify-center bg-background p-4">
         <div className="w-full max-w-sm rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive space-y-3">
           <p>{error || t('failedToCheckSetup')}</p>
           <Button
@@ -208,7 +208,7 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-4">
       <div className="absolute top-4 right-4">
         <LanguageSwitcherSelect />
       </div>

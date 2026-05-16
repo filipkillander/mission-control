@@ -163,7 +163,7 @@ export function WidgetGrid({ data }: { data: DashboardData }) {
     const flushRow = () => {
       if (rowWidgets.length === 0) return
       elements.push(
-        <section key={`row-${elements.length}`} className="grid xl:grid-cols-12 gap-4">
+        <section key={`row-${elements.length}`} className="grid min-w-0 xl:grid-cols-12 gap-4">
           {rowWidgets.map(({ id, size }) => renderWidget(id, SIZE_CLASSES[size] || 'xl:col-span-4'))}
         </section>
       )
@@ -204,7 +204,7 @@ export function WidgetGrid({ data }: { data: DashboardData }) {
     return (
       <div
         key={widgetId}
-        className={`${colClass} relative ${customizing ? 'cursor-grab' : ''} ${
+        className={`${colClass} relative min-w-0 ${customizing ? 'cursor-grab' : ''} ${
           isDragging ? 'opacity-40' : ''
         } ${isDragOver ? 'ring-2 ring-primary/50 rounded-lg' : ''}`}
         draggable={customizing}
