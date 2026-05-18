@@ -3,8 +3,10 @@ import { APP_VERSION } from './version'
 import { config } from './config'
 import { buildGatewayWebSocketUrl } from './gateway-url'
 import { getDetectedGatewayToken } from './gateway-runtime'
-
-const GATEWAY_PROTOCOL_VERSION = 3
+// Wire-protocol version for OpenClaw gateway (2026.5.12+ requires v4).
+// Keep maxProtocol high (99) to stay forward-compatible when gateway upgrades.
+const MIN_GATEWAY_PROTOCOL = 4
+const MAX_GATEWAY_PROTOCOL = 99
 const GATEWAY_CLIENT_ID = process.env.GATEWAY_CLIENT_ID || 'gateway-client'
 const GATEWAY_SCOPES = ['operator.admin', 'operator.write', 'operator.read']
 
@@ -123,8 +125,8 @@ export async function callOpenClawGateway<T = unknown>(
         method: 'connect',
         id: connectId,
         params: {
-          minProtocol: GATEWAY_PROTOCOL_VERSION,
-          maxProtocol: GATEWAY_PROTOCOL_VERSION,
+          minProtocol: MIN_GATEWAY_PROTOCOL,
+          maxProtocol: MAX_GATEWAY_PROTOCOL,
           client: {
             id: GATEWAY_CLIENT_ID,
             displayName: 'Mission Control',
