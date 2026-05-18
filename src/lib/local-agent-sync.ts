@@ -29,6 +29,7 @@ interface DiskAgent {
   soulContent: string | null
   configContent: string | null
   contentHash: string
+  openclawId: string | null
 }
 
 interface AgentRow {
@@ -41,6 +42,7 @@ interface AgentRow {
   content_hash: string | null
   workspace_path: string | null
   config: string | null
+  openclaw_id?: string | null
 }
 
 // Detection files — order matters: first found wins for role extraction
@@ -95,6 +97,29 @@ function extractRole(content: string): string {
     if (match?.[1]) return match[1].trim()
   }
   return 'agent'
+}
+
+function parseConfig(raw: string | null): Record<string, any> | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function getDisplayNameFromConfig(config: Record<string, any> | null, fallback: string): string {
+  const identityName = config?.identity?.name
+  if (typeof identityName === 'string' && identityName.trim()) return identityName.trim()
+  const name = config?.name
+  if (typeof name === 'string' && name.trim()) return name.trim()
+  return fallback
+}
+
+function getOpenClawIdFromConfig(config: Record<string, any> | null): string | null {
+  const value = config?.openclawId
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function getLocalAgentRoots(): string[] {
@@ -159,6 +184,7 @@ function scanLocalAgents(): DiskAgent[] {
             soulContent: body.trim() || null,
             configContent: configJson,
             contentHash: sha256(content),
+            openclawId: null,
           })
         } catch { /* unreadable */ }
         continue
@@ -199,18 +225,21 @@ function scanLocalAgents(): DiskAgent[] {
           } catch { /* unreadable */ }
         }
       }
+      const parsedConfig = parseConfig(configContent)
+      const agentName = getDisplayNameFromConfig(parsedConfig, entry)
 
       // Build content hash from whatever identity files exist
       const hashInput = (soulContent || '') + (configContent || '')
       if (!hashInput) continue
 
       agents.push({
-        name: entry,
+        name: agentName,
         dir: fullPath,
         role,
         soulContent,
         configContent,
         contentHash: sha256(hashInput),
+        openclawId: getOpenClawIdFromConfig(parsedConfig),
       })
     }
   }
@@ -233,14 +262,30 @@ export async function syncLocalAgents(): Promise<{ ok: boolean; message: string 
       diskMap.set(a.name, a)
     }
 
-    // Fetch DB agents with source='local'
+    // Fetch all agent rows so local disk definitions can attach to existing
+    // Hermes/OpenClaw rows by openclawId instead of creating case-variant rows.
     const dbRows = db.prepare(
-      `SELECT id, name, role, soul_content, status, source, content_hash, workspace_path, config FROM agents WHERE source = 'local'`
+      `SELECT
+        id,
+        name,
+        role,
+        soul_content,
+        status,
+        source,
+        content_hash,
+        workspace_path,
+        config,
+        json_extract(config, '$.openclawId') AS openclaw_id
+      FROM agents`
     ).all() as AgentRow[]
 
-    const dbMap = new Map<string, AgentRow>()
+    const dbByName = new Map<string, AgentRow>()
+    const dbByOpenClawId = new Map<string, AgentRow>()
+    const localRows: AgentRow[] = []
     for (const r of dbRows) {
-      dbMap.set(r.name, r)
+      dbByName.set(r.name, r)
+      if (r.openclaw_id) dbByOpenClawId.set(r.openclaw_id, r)
+      if (r.source === 'local') localRows.push(r)
     }
 
     let created = 0
@@ -255,6 +300,10 @@ export async function syncLocalAgents(): Promise<{ ok: boolean; message: string 
       UPDATE agents SET role = ?, soul_content = ?, content_hash = ?, workspace_path = ?, config = ?, updated_at = ?
       WHERE id = ?
     `)
+    const updateLinkedStmt = db.prepare(`
+      UPDATE agents SET content_hash = ?, workspace_path = ?, config = ?, updated_at = ?
+      WHERE id = ?
+    `)
     const markRemovedStmt = db.prepare(`
       UPDATE agents SET status = 'offline', updated_at = ? WHERE id = ?
     `)
@@ -262,20 +311,25 @@ export async function syncLocalAgents(): Promise<{ ok: boolean; message: string 
     db.transaction(() => {
       // Disk → DB: additions and changes
       for (const [name, disk] of diskMap) {
-        const existing = dbMap.get(name)
+        const existing = dbByName.get(name) || (disk.openclawId ? dbByOpenClawId.get(disk.openclawId) : undefined)
         const configJson = disk.configContent ? disk.configContent : null
 
         if (!existing) {
           insertStmt.run(name, disk.role, disk.soulContent, disk.contentHash, disk.dir, configJson, now, now)
           created++
-        } else if (existing.content_hash !== disk.contentHash) {
-          updateStmt.run(disk.role, disk.soulContent, disk.contentHash, disk.dir, configJson, now, existing.id)
+        } else if (existing.content_hash !== disk.contentHash || existing.workspace_path !== disk.dir || existing.config !== configJson) {
+          if (existing.source === 'local') {
+            updateStmt.run(disk.role, disk.soulContent, disk.contentHash, disk.dir, configJson, now, existing.id)
+          } else {
+            updateLinkedStmt.run(disk.contentHash, disk.dir, configJson, now, existing.id)
+          }
           updated++
         }
       }
 
       // Agents that vanished from disk — mark offline but don't delete
-      for (const [name, row] of dbMap) {
+      for (const row of localRows) {
+        const name = row.name
         if (!diskMap.has(name) && row.status !== 'offline') {
           markRemovedStmt.run(now, row.id)
           removed++
