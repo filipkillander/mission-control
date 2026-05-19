@@ -1,0 +1,27 @@
+{
+  "name": "openclaw-runtime-status-session-repair",
+  "openclawVersion": "2026.5.18",
+  "createdAt": "2026-05-19T15:55:00+02:00",
+  "scope": "Reapply the verified OpenClaw runtime status/session performance patches after an OpenClaw reinstall or update rewrites dist files.",
+  "runtimeRoot": "/Users/Lumi/.openclaw/lib/node_modules/openclaw",
+  "files": [
+    {
+      "target": "dist/commands/status.summary.runtime.js",
+      "asset": "files/openclaw-dist/commands/status.summary.runtime.js",
+      "patchedSha256": "52c037d1dbcc7b7cdc5c5e6c29baf03c615093f4a0ed28f88a667d845190438d",
+      "sourceSha256": [
+        "5f5d25a431221353ecac58d1f44053589a270f84014c5cad34e5fb51b1d77b0a"
+      ],
+      "reason": "Preserve auto/default runtime labels so status sessions avoid slow provider runtime discovery."
+    },
+    {
+      "target": "dist/agent-runtime-label-D-rxX_08.js",
+      "asset": "files/openclaw-dist/agent-runtime-label-D-rxX_08.js",
+      "patchedSha256": "88979b6895f2e7bf8d91826da826986814b055c2cb469f7ef159b91f3bbf591d",
+      "sourceSha256": [
+        "64ce20113588b47bf41201d42e89cc8655c712e9e10fc90ae6ba7ad94a05ffde"
+      ],
+      "reason": "Return OpenClaw Pi Default immediately for auto/default runtime labels."
+    }
+  ]
+}

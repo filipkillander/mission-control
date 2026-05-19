@@ -7,9 +7,7 @@ const crypto = require('crypto')
 const { execFileSync } = require('child_process')
 
 const repoRoot = path.resolve(__dirname, '..')
-const patchRoot = path.join(repoRoot, 'ops', 'openclaw-runtime-patches', '2026.5.12')
-const manifestPath = path.join(patchRoot, 'manifest.json')
-const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+const patchesRoot = path.join(repoRoot, 'ops', 'openclaw-runtime-patches')
 
 const args = new Set(process.argv.slice(2).filter((arg) => !arg.startsWith('--openclaw-root=')))
 const rootArg = process.argv.slice(2).find((arg) => arg.startsWith('--openclaw-root='))
@@ -74,6 +72,23 @@ function readOpenClawVersion() {
   }
 }
 
+function resolveManifestForVersion(observedVersion) {
+  const versions = fs.readdirSync(patchesRoot)
+    .filter((entry) => fs.existsSync(path.join(patchesRoot, entry, 'manifest.json')))
+    .sort()
+  const matchedVersion = versions.find((version) => observedVersion.includes(version))
+  if (!matchedVersion) {
+    throw new Error(`No OpenClaw runtime patch manifest matches observed version: ${observedVersion}`)
+  }
+  const patchRoot = path.join(patchesRoot, matchedVersion)
+  const manifestPath = path.join(patchRoot, 'manifest.json')
+  return {
+    patchRoot,
+    manifestPath,
+    manifest: JSON.parse(fs.readFileSync(manifestPath, 'utf8')),
+  }
+}
+
 function ensureInsideRoot(targetPath) {
   const relative = path.relative(openclawRoot, targetPath)
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -83,14 +98,17 @@ function ensureInsideRoot(targetPath) {
 
 const report = {
   mode: apply ? 'apply' : 'check',
-  manifest: manifest.name,
-  expectedOpenClawVersion: manifest.openclawVersion,
   observedOpenClawVersion: readOpenClawVersion(),
   openclawRoot,
   backupDir: null,
   files: [],
   probes: [],
 }
+
+const { patchRoot, manifestPath, manifest } = resolveManifestForVersion(report.observedOpenClawVersion)
+report.manifest = manifest.name
+report.manifestPath = manifestPath
+report.expectedOpenClawVersion = manifest.openclawVersion
 
 if (!report.observedOpenClawVersion.includes(manifest.openclawVersion)) {
   throw new Error(`OpenClaw version mismatch. Expected ${manifest.openclawVersion}, got: ${report.observedOpenClawVersion}`)
